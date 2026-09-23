@@ -1,13 +1,39 @@
 import "server-only";
 import { Prisma, PrismaClient } from "@prisma/client";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+import { createMemoryClient, IN_MEMORY_DB } from "./memory-db";
+
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient; dbReady?: () => Promise<void> };
+const LOG: ("warn" | "error")[] = process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"];
+
+function createClient() {
+  // memory-db: temporary demo mode when no DATABASE_URL is configured.
+  if (IN_MEMORY_DB) {
+    const { client, whenReady } = createMemoryClient(LOG);
+    globalForPrisma.dbReady = whenReady;
+    void whenReady();
+    // Make every query wait until the in-memory schema and seed exist.
+    return client.$extends({
+      query: {
+        async $allOperations({ args, query }) {
+          await whenReady();
+          return query(args);
+        },
+      },
+    }) as unknown as PrismaClient;
+  }
+  return new PrismaClient({ log: LOG });
+}
 
 /** Unscoped client. Only use for identity/global tables or after an explicit tenant check. */
-export const prisma =
-  globalForPrisma.prisma ?? new PrismaClient({ log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"] });
+export const prisma = globalForPrisma.prisma ?? createClient();
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+globalForPrisma.prisma = prisma;
+
+/** Resolves once the database is usable (immediately for a real database). */
+export function dbReady(): Promise<void> {
+  return globalForPrisma.dbReady?.() ?? Promise.resolve();
+}
 
 /** Models whose rows belong to exactly one company. */
 export const TENANT_MODELS = new Set<string>([

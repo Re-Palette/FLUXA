@@ -9,7 +9,8 @@ import { rateLimit } from "@/server/security/rate-limit";
 import { clientIp, userAgent } from "@/server/security/request";
 import { audit } from "@/server/security/audit";
 import { databaseSetupError } from "@/server/actions";
-import { DEMO_EMAIL, demoLoginEnabled, ensureDemoAccount, resetDemoAccount } from "@/server/services/demo";
+import { DEMO_EMAIL, demoLoginEnabled, demoSessionToken, ensureDemoAccount, resetDemoAccount } from "@/server/services/demo";
+import { IN_MEMORY_DB } from "@/server/memory-db";
 
 export type AuthState = { error?: string; fields?: { email?: string; name?: string } } | undefined;
 
@@ -82,7 +83,8 @@ async function loginActionImpl(_prev: AuthState, formData: FormData): Promise<Au
     await audit({ action: "auth.login_failed", userId: user?.id, ip });
     return { error: "メールアドレスまたはパスワードが正しくありません", fields };
   }
-  await createSession(user.id, { ip, userAgent: await userAgent() });
+  const demoToken = IN_MEMORY_DB && user.email === DEMO_EMAIL ? demoSessionToken() : undefined; // memory-db
+  await createSession(user.id, { ip, userAgent: await userAgent(), token: demoToken });
   await audit({ action: "auth.login", userId: user.id, ip, metadata: { method: "password" } });
   redirect(safeReturnTo(String(formData.get("next") ?? ""), "/app"));
 }
@@ -106,7 +108,8 @@ export async function demoLoginAction() {
     if (databaseSetupError(err)) redirect("/login?error=database");
     throw err;
   }
-  await createSession(userId, { ip, userAgent: await userAgent() });
+  // memory-db: a stateless token so the session survives across server instances.
+  await createSession(userId, { ip, userAgent: await userAgent(), token: IN_MEMORY_DB ? demoSessionToken() : undefined });
   await audit({ action: "auth.login", userId, ip, metadata: { method: "demo" } });
   redirect("/app");
 }

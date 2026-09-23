@@ -31,10 +31,12 @@ describe("demo account", () => {
     expect(await db.integration.count({})).toBe(0);
     expect(await db.credential.count({})).toBe(0);
 
+    // Reset restores the sample data after changes.
+    await db.report.deleteMany({});
     await resetDemoAccount();
     const after = await prisma.companyMember.findMany({ where: { user: { email: DEMO_EMAIL } } });
     expect(after).toHaveLength(1);
-    expect(after[0].companyId).not.toBe(members[0].companyId);
+    expect(await tenantDb(after[0].companyId).report.count({})).toBe(3);
   });
 });
 

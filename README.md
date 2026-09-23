@@ -42,6 +42,13 @@ minute so schedules fire and interrupted work is recovered:
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-app/api/cron/tick
 ```
 
+## Temporary: zero-config demo mode
+
+If `DATABASE_URL` is not set, the app runs on an in-memory Postgres (PGlite) with the demo company preloaded,
+and demo login is enabled — so a fresh Vercel deploy can be opened without any setup. Data resets whenever a
+server instance restarts. To remove this mode later: delete `src/server/memory-db.ts`, the lines marked
+`memory-db`, the PGlite packages and the `serverExternalPackages`/`outputFileTracingIncludes` entries in `next.config.ts`.
+
 ## Deploying to Vercel
 
 See [`docs/deploy-vercel.md`](docs/deploy-vercel.md) (Japanese). Set `DATABASE_URL`, `AUTH_SECRET`, `ENCRYPTION_KEY`, `APP_URL`;

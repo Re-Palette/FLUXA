@@ -15,16 +15,18 @@
     "test:watch": "vitest",
     "postinstall": "prisma generate",
     "google:check": "tsx --env-file=.env scripts/check-google.ts",
-    "vercel-build": "prisma migrate deploy && prisma db seed && next build"
+    "vercel-build": "node scripts/vercel-build.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
+    "@electric-sql/pglite": "^0.5.8",
     "@google/genai": "^2.24.0",
     "@prisma/client": "^6.19.3",
     "clsx": "^2.1.1",
     "lucide-react": "^1.47.0",
     "next": "16.3.6",
     "openai": "^7.23.0",
+    "pglite-prisma-adapter": "^0.6.1",
     "prisma": "^6.19.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",

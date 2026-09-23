@@ -4,6 +4,8 @@ import { prisma, tenantDb } from "../db";
 import { createEmployee } from "./employees";
 import { syncProfileMemory } from "./companies";
 import { isLocalApp } from "../env";
+import { IN_MEMORY_DB } from "../memory-db";
+import { createHmac } from "node:crypto";
 import { hashPassword, verifyPassword } from "../auth/password";
 
 /** The shared demo account. Its company holds sample data only (no connected services, no credentials). */
@@ -13,6 +15,7 @@ export const DEMO_NAME = "デモ ユーザー";
 export const DEMO_PASSWORD = "fluxa-demo-2026";
 
 export function demoLoginEnabled(): boolean {
+  if (IN_MEMORY_DB) return true; // memory-db: nothing real can exist in a throwaway in-memory database
   if (process.env.DEMO_LOGIN === "true") return true;
   if (process.env.DEMO_LOGIN === "false") return false;
   return process.env.NODE_ENV !== "production" || isLocalApp();
@@ -83,8 +86,9 @@ const SALES_REPORT = `# 週次営業レポート（サンプル）
 > これはデモ用のサンプルデータです。`;
 
 async function buildDemoCompany(userId: string) {
+  // Fixed ids keep links valid across server instances (each in-memory instance rebuilds the same demo).
   const company = await prisma.company.create({
-    data: { ...PROFILE, status: "ACTIVE", onboardingStep: 6, launchedAt: ago(60 * 24 * 3) },
+    data: { id: "demo_company", ...PROFILE, status: "ACTIVE", onboardingStep: 6, launchedAt: ago(60 * 24 * 3) },
   });
   await prisma.companyMember.create({ data: { companyId: company.id, userId, role: "OWNER" } });
   const free = await prisma.plan.findUnique({ where: { key: "free" } });
@@ -96,7 +100,7 @@ async function buildDemoCompany(userId: string) {
   const keys = ["ceo_assistant", "market_researcher", "marketing_manager", "sns_manager", "sales_manager", "finance_manager"];
   const emp: Record<string, { id: string; role: string }> = {};
   for (const k of keys) {
-    const e = await createEmployee(db, cid, { templateKey: k });
+    const e = await createEmployee(db, cid, { id: `demo_emp_${k}`, templateKey: k });
     emp[k] = { id: e.id, role: e.role };
   }
   const statuses: Record<string, EmployeeStatus> = {
@@ -111,7 +115,7 @@ async function buildDemoCompany(userId: string) {
 
   // Workflow 1: research → marketing plan, waiting for approval on an outbound email.
   const wf1 = await db.workflow.create({
-    data: {
+    data: { id: "demo_wf_research",
       companyId: cid,
       request: "競合他社を調査して、新しいマーケティング施策を考えて",
       title: "競合調査とマーケティング施策",
@@ -122,14 +126,14 @@ async function buildDemoCompany(userId: string) {
     },
   });
   const t1 = await db.task.create({
-    data: {
+    data: { id: "demo_task_research",
       companyId: cid, workflowId: wf1.id, employeeId: emp.market_researcher.id, step: 0,
       title: "競合3社の調査", description: "主要な競合3社の価格・チャネル・強みを比較する",
       status: "COMPLETED", result: RESEARCH_REPORT, createdAt: ago(94), startedAt: ago(94), completedAt: ago(80),
     },
   });
   const t2 = await db.task.create({
-    data: {
+    data: { id: "demo_task_plan",
       companyId: cid, workflowId: wf1.id, employeeId: emp.marketing_manager.id, step: 1,
       title: "施策の立案", description: "調査結果をもとに、EC 売上を伸ばす施策を3つ提案する",
       status: "APPROVAL_REQUIRED", approvalRequired: true, result: null, createdAt: ago(94), startedAt: ago(79),
@@ -142,10 +146,10 @@ async function buildDemoCompany(userId: string) {
     },
   });
   await db.report.create({
-    data: { companyId: cid, employeeId: emp.market_researcher.id, taskId: t1.id, workflowId: wf1.id, title: "競合調査レポート", kind: "task", summary: "競合3社を比較。サロン経営者向けの情報発信に差別化の余地。", content: RESEARCH_REPORT, createdAt: ago(80) },
+    data: { id: "demo_report_research", companyId: cid, employeeId: emp.market_researcher.id, taskId: t1.id, workflowId: wf1.id, title: "競合調査レポート", kind: "task", summary: "競合3社を比較。サロン経営者向けの情報発信に差別化の余地。", content: RESEARCH_REPORT, createdAt: ago(80) },
   });
   await db.report.create({
-    data: { companyId: cid, employeeId: emp.marketing_manager.id, taskId: t2.id, workflowId: wf1.id, title: "マーケティング施策案", kind: "task", summary: "サロン連動キャンペーン・UGC プログラム・経営者向けニュースレターの3施策。", content: PLAN_REPORT, createdAt: ago(70) },
+    data: { id: "demo_report_plan", companyId: cid, employeeId: emp.marketing_manager.id, taskId: t2.id, workflowId: wf1.id, title: "マーケティング施策案", kind: "task", summary: "サロン連動キャンペーン・UGC プログラム・経営者向けニュースレターの3施策。", content: PLAN_REPORT, createdAt: ago(70) },
   });
   const payload = {
     to: ["salon-a@example.com", "salon-b@example.com", "salon-c@example.com"],
@@ -153,10 +157,11 @@ async function buildDemoCompany(userId: string) {
     body: "いつもお世話になっております。Re-Palette です。\n\n来店されたお客様向けに、EC 限定のトライアルセットをご用意しました。店頭で QR コードをご案内いただくだけで、サロン様にも紹介報酬をお支払いします。\n\nご不明点がございましたらお気軽にご返信ください。",
   };
   const call = await db.toolCall.create({
-    data: { companyId: cid, taskId: t2.id, employeeId: emp.marketing_manager.id, tool: "gmail.send", callId: "demo-call-1", input: payload, status: "AWAITING_APPROVAL", createdAt: ago(68) },
+    data: { id: "demo_call_email", companyId: cid, taskId: t2.id, employeeId: emp.marketing_manager.id, tool: "gmail.send", callId: "demo-call-1", input: payload, status: "AWAITING_APPROVAL", createdAt: ago(68) },
   });
   await db.approval.create({
     data: {
+      id: "demo_approval_email",
       companyId: cid, taskId: t2.id, employeeId: emp.marketing_manager.id, toolCallId: call.id,
       title: `メール「${payload.subject}」を 3 件の宛先に送信`,
       summary: `宛先: ${payload.to.join(", ")}\n\n${payload.body}`,
@@ -166,13 +171,13 @@ async function buildDemoCompany(userId: string) {
 
   // Workflow 2: completed weekly sales report.
   const wf2 = await db.workflow.create({
-    data: { companyId: cid, request: "今週の営業レポートを作成して", title: "週次営業レポート", status: "COMPLETED", createdById: userId, targetEmployeeId: emp.sales_manager.id, createdAt: ago(60 * 26), completedAt: ago(60 * 25), finalResult: SALES_REPORT },
+    data: { id: "demo_wf_sales", companyId: cid, request: "今週の営業レポートを作成して", title: "週次営業レポート", status: "COMPLETED", createdById: userId, targetEmployeeId: emp.sales_manager.id, createdAt: ago(60 * 26), completedAt: ago(60 * 25), finalResult: SALES_REPORT },
   });
   const t3 = await db.task.create({
-    data: { companyId: cid, workflowId: wf2.id, employeeId: emp.sales_manager.id, step: 0, title: "週次営業レポートの作成", description: "今週の営業活動をまとめる", status: "COMPLETED", result: SALES_REPORT, createdAt: ago(60 * 26), startedAt: ago(60 * 26), completedAt: ago(60 * 25) },
+    data: { id: "demo_task_sales", companyId: cid, workflowId: wf2.id, employeeId: emp.sales_manager.id, step: 0, title: "週次営業レポートの作成", description: "今週の営業活動をまとめる", status: "COMPLETED", result: SALES_REPORT, createdAt: ago(60 * 26), startedAt: ago(60 * 26), completedAt: ago(60 * 25) },
   });
   await db.report.create({
-    data: { companyId: cid, employeeId: emp.sales_manager.id, taskId: t3.id, workflowId: wf2.id, title: "週次営業レポート", kind: "workflow", summary: "新規リード18件、受注2件。教育機関向けプランの検討を推奨。", content: SALES_REPORT, createdAt: ago(60 * 25) },
+    data: { id: "demo_report_sales", companyId: cid, employeeId: emp.sales_manager.id, taskId: t3.id, workflowId: wf2.id, title: "週次営業レポート", kind: "workflow", summary: "新規リード18件、受注2件。教育機関向けプランの検討を推奨。", content: SALES_REPORT, createdAt: ago(60 * 25) },
   });
 
   await db.companyMemory.createMany({
@@ -220,10 +225,20 @@ async function buildDemoCompany(userId: string) {
 }
 
 /** Returns the demo user id, creating the demo user and a fully populated sample company on first use. */
-export async function ensureDemoAccount(): Promise<string> {
+let ensuring: Promise<string> | null = null;
+
+export function ensureDemoAccount(): Promise<string> {
+  // Serialize within this process so concurrent first requests don't build the demo twice.
+  ensuring ??= ensureDemoAccountOnce().finally(() => {
+    ensuring = null;
+  });
+  return ensuring;
+}
+
+async function ensureDemoAccountOnce(): Promise<string> {
   let user = await prisma.user.upsert({
     where: { email: DEMO_EMAIL },
-    create: { email: DEMO_EMAIL, name: DEMO_NAME, passwordHash: await hashPassword(DEMO_PASSWORD) },
+    create: { id: "demo_user", email: DEMO_EMAIL, name: DEMO_NAME, passwordHash: await hashPassword(DEMO_PASSWORD) },
     update: {},
   });
   if (!user.passwordHash || !(await verifyPassword(DEMO_PASSWORD, user.passwordHash))) {
@@ -242,4 +257,13 @@ export async function resetDemoAccount(): Promise<void> {
     await prisma.company.deleteMany({ where: { id: { in: memberships.map((m) => m.companyId) } } });
   }
   await ensureDemoAccount();
+}
+
+/**
+ * memory-db: a stateless demo session token. Each in-memory server instance has its own sessions table, so the
+ * session layer recognises this token and recreates the demo session on whichever instance receives it.
+ */
+export function demoSessionToken(): string {
+  const secret = process.env.AUTH_SECRET || "fluxa-in-memory-demo";
+  return "demo." + createHmac("sha256", secret).update("fluxa-demo-session").digest("base64url");
 }

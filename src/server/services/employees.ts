@@ -18,6 +18,7 @@ export async function createEmployee(
   db: TenantDb,
   companyId: string,
   input: {
+    id?: string;
     templateKey?: string | null;
     name?: string;
     role?: string;
@@ -38,6 +39,7 @@ export async function createEmployee(
   return db.$transaction(async (tx) => {
     const employee = await tx.aIEmployee.create({
       data: {
+        ...(input.id ? { id: input.id } : {}),
         companyId,
         templateKey: tpl?.key ?? null,
         name: input.name?.trim() || role,

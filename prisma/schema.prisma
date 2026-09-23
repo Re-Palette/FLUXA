@@ -2,7 +2,8 @@
 // Every tenant-owned model carries a non-null companyId. See docs/architecture.md §3.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {

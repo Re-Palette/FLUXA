@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { googleSetupStatus } from "@/lib/google-setup";
+import "./memory-db"; // memory-db: applies zero-config defaults before the environment is validated
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),

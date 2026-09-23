@@ -5,19 +5,22 @@ import { unstable_rethrow } from "next/navigation";
 import { prisma } from "../db";
 import { randomToken, sha256 } from "../security/crypto";
 import { secureCookies } from "../env";
+import { IN_MEMORY_DB } from "../memory-db";
+import { demoSessionToken, ensureDemoAccount } from "../services/demo";
 
 export const SESSION_COOKIE = "fluxa_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_AFTER_MS = 24 * 60 * 60 * 1000;
 
-export async function createSession(userId: string, meta: { ip?: string; userAgent?: string | null } = {}) {
-  const token = randomToken(32);
+export async function createSession(userId: string, meta: { ip?: string; userAgent?: string | null; token?: string } = {}) {
+  const token = meta.token ?? randomToken(32);
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   const firstMembership = await prisma.companyMember.findFirst({
     where: { userId },
     orderBy: { createdAt: "asc" },
     select: { companyId: true },
   });
+  await prisma.session.deleteMany({ where: { tokenHash: sha256(token) } });
   await prisma.session.create({
     data: {
       tokenHash: sha256(token),
@@ -43,10 +46,20 @@ export const getSession = cache(async () => {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const session = await prisma.session.findUnique({
+  let session = await prisma.session.findUnique({
     where: { tokenHash: sha256(token) },
     include: { user: { select: { id: true, email: true, name: true, image: true } } },
   });
+  // memory-db: this server instance may never have seen the demo session; rebuild it from the stateless token.
+  if (!session && IN_MEMORY_DB && token === demoSessionToken()) {
+    const userId = await ensureDemoAccount();
+    session = await prisma.session.upsert({
+      where: { tokenHash: sha256(token) },
+      create: { tokenHash: sha256(token), userId, expiresAt: new Date(Date.now() + SESSION_TTL_MS), activeCompanyId: "demo_company" },
+      update: {},
+      include: { user: { select: { id: true, email: true, name: true, image: true } } },
+    });
+  }
   if (!session) return null;
   if (session.expiresAt.getTime() < Date.now()) {
     await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
