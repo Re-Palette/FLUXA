@@ -38,3 +38,9 @@ export function googleOAuthConfigured(): boolean {
 }
 
 export const isProduction = () => process.env.NODE_ENV === "production";
+
+/** Secure cookies only when the app is actually served over HTTPS (http://localhost must still work). */
+export const secureCookies = () => (process.env.APP_URL ?? "").startsWith("https://");
+
+/** True when APP_URL points at this machine (local development or a local production build). */
+export const isLocalApp = () => /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/.test(process.env.APP_URL ?? "http://localhost:3000");

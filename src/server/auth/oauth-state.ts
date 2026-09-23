@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, createHmac } from "node:crypto";
 import { cookies } from "next/headers";
 import { randomToken, safeEqual } from "../security/crypto";
-import { env, isProduction } from "../env";
+import { env, secureCookies } from "../env";
 
 const COOKIE = "fluxa_oauth";
 const TTL_SECONDS = 600;
@@ -32,7 +32,7 @@ export async function beginOAuth(data: Omit<OAuthState, "state" | "verifier" | "
   const payload = Buffer.from(JSON.stringify(st)).toString("base64url");
   (await cookies()).set(COOKIE, `${payload}.${sign(payload)}`, {
     httpOnly: true,
-    secure: isProduction(),
+    secure: secureCookies(),
     sameSite: "lax",
     path: "/api",
     maxAge: TTL_SECONDS,

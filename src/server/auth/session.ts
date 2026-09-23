@@ -3,7 +3,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { prisma } from "../db";
 import { randomToken, sha256 } from "../security/crypto";
-import { isProduction } from "../env";
+import { secureCookies } from "../env";
 
 export const SESSION_COOKIE = "fluxa_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -30,7 +30,7 @@ export async function createSession(userId: string, meta: { ip?: string; userAge
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: isProduction(),
+    secure: secureCookies(),
     sameSite: "lax",
     path: "/",
     expires: expiresAt,

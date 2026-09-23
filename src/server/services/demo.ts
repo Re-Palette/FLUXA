@@ -3,14 +3,19 @@ import type { EmployeeStatus, Prisma } from "@prisma/client";
 import { prisma, tenantDb } from "../db";
 import { createEmployee } from "./employees";
 import { syncProfileMemory } from "./companies";
+import { isLocalApp } from "../env";
+import { hashPassword, verifyPassword } from "../auth/password";
 
 /** The shared demo account. Its company holds sample data only (no connected services, no credentials). */
 export const DEMO_EMAIL = "demo@fluxa.demo";
+export const DEMO_NAME = "デモ ユーザー";
+/** Public by design: only usable while demo login is enabled (never on a real deployment by default). */
+export const DEMO_PASSWORD = "fluxa-demo-2026";
 
 export function demoLoginEnabled(): boolean {
   if (process.env.DEMO_LOGIN === "true") return true;
   if (process.env.DEMO_LOGIN === "false") return false;
-  return process.env.NODE_ENV !== "production";
+  return process.env.NODE_ENV !== "production" || isLocalApp();
 }
 
 const PROFILE = {
@@ -216,11 +221,14 @@ async function buildDemoCompany(userId: string) {
 
 /** Returns the demo user id, creating the demo user and a fully populated sample company on first use. */
 export async function ensureDemoAccount(): Promise<string> {
-  const user = await prisma.user.upsert({
+  let user = await prisma.user.upsert({
     where: { email: DEMO_EMAIL },
-    create: { email: DEMO_EMAIL, name: "デモ ユーザー" },
+    create: { email: DEMO_EMAIL, name: DEMO_NAME, passwordHash: await hashPassword(DEMO_PASSWORD) },
     update: {},
   });
+  if (!user.passwordHash || !(await verifyPassword(DEMO_PASSWORD, user.passwordHash))) {
+    user = await prisma.user.update({ where: { id: user.id }, data: { name: DEMO_NAME, passwordHash: await hashPassword(DEMO_PASSWORD) } });
+  }
   const hasCompany = await prisma.companyMember.count({ where: { userId: user.id } });
   if (!hasCompany) await buildDemoCompany(user.id);
   return user.id;

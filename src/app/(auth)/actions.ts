@@ -50,6 +50,11 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
   const okEmail = await rateLimit(`login:email:${parsed.data.email}`, 8, 900);
   if (!okIp || !okEmail) return { error: "ログイン試行が多すぎます。15分ほど待ってから再度お試しください。", fields };
 
+  if (parsed.data.email === DEMO_EMAIL) {
+    // The demo account only exists while demo login is enabled; create it on first use.
+    if (!demoLoginEnabled()) return { error: "メールアドレスまたはパスワードが正しくありません", fields };
+    await ensureDemoAccount();
+  }
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   const valid = await verifyPassword(parsed.data.password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !user.passwordHash || !valid) {

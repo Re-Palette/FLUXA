@@ -25,8 +25,9 @@ npm run dev                     # http://localhost:3000
 ```
 
 Want to look around first? Click **「デモで中を見る」** on the login page — it signs you into a sample company
-(AI employees, finished tasks, reports, a pending approval) with no registration. It's on in development
-only (`DEMO_LOGIN=true` to force it on). Use **デモをリセット** in the app to restore the sample data.
+(AI employees, finished tasks, reports, a pending approval) with no registration. You can also type the demo account into the login form:
+**`demo@fluxa.demo` / `fluxa-demo-2026`** (created on first use). Demo login is on in development and for local
+builds (`APP_URL` on localhost), off on real deployments unless `DEMO_LOGIN=true`. Use **デモをリセット** in the app to restore the sample data.
 
 Then: **Sign up → Create company → Pick AI employees → Responsibilities & Mission → Connect tools →
 Permissions → Launch → Dashboard**. To let employees actually work, connect an AI provider in
