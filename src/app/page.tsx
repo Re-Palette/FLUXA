@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Bot, CheckSquare, Network, Plug, ShieldCheck, Workflow } from "lucide-react";
-import { getSession } from "@/server/auth/session";
+import { getSessionOrNull } from "@/server/auth/session";
 import { Logo } from "@/components/brand/logo";
 import { ButtonLink } from "@/components/ui/button";
 import { DemoButton } from "./(auth)/demo-button";
@@ -63,7 +63,7 @@ const FEATURES = [
 ];
 
 export default async function LandingPage() {
-  const session = await getSession();
+  const session = await getSessionOrNull();
   return (
     <div className="relative overflow-hidden">
       <header className="relative z-10 mx-auto flex max-w-7xl items-center gap-8 px-5 py-6 sm:px-8">

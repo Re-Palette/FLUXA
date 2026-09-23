@@ -21,6 +21,23 @@ export function toActionError(err: unknown): { ok: false; error: string; fieldEr
   }
   // Next.js control-flow errors (redirect/notFound) must propagate.
   if (err && typeof err === "object" && "digest" in err && typeof (err as { digest: unknown }).digest === "string" && (err as { digest: string }).digest.startsWith("NEXT_")) throw err;
+  const dbError = databaseSetupError(err);
+  if (dbError) return { ok: false, error: dbError };
   console.error("action failed", { error: (err as Error)?.message });
   return { ok: false, error: "エラーが発生しました。しばらくしてから再度お試しください。" };
+}
+
+/** Maps "database missing / not migrated" failures to an actionable message for whoever set up the app. */
+export function databaseSetupError(err: unknown): string | null {
+  const name = (err as { name?: string })?.name;
+  const code = (err as { code?: string; errorCode?: string })?.code ?? (err as { errorCode?: string })?.errorCode;
+  if (name === "PrismaClientInitializationError" || code === "P1001" || code === "P1000" || code === "P1012") {
+    console.error("database unavailable", { code, error: (err as Error).message });
+    return "データベースに接続できません。サーバーの DATABASE_URL を確認してください（/api/health で状態を確認できます）。";
+  }
+  if (code === "P2021" || code === "P2022") {
+    console.error("database not migrated", { code });
+    return "データベースの初期化（マイグレーション）が済んでいません。prisma migrate deploy を実行してください（/api/health）。";
+  }
+  return null;
 }

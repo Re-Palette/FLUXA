@@ -8,6 +8,7 @@ import { safeReturnTo } from "@/server/auth/oauth-state";
 import { rateLimit } from "@/server/security/rate-limit";
 import { clientIp, userAgent } from "@/server/security/request";
 import { audit } from "@/server/security/audit";
+import { databaseSetupError } from "@/server/actions";
 import { DEMO_EMAIL, demoLoginEnabled, ensureDemoAccount, resetDemoAccount } from "@/server/services/demo";
 
 export type AuthState = { error?: string; fields?: { email?: string; name?: string } } | undefined;
@@ -18,7 +19,17 @@ const signupSchema = z.object({
   password: z.string().min(10, "パスワードは10文字以上にしてください").max(200),
 });
 
-export async function signupAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+export async function signupAction(prev: AuthState, formData: FormData): Promise<AuthState> {
+  try {
+    return await signupActionImpl(prev, formData);
+  } catch (err) {
+    const msg = databaseSetupError(err);
+    if (msg) return { error: msg, fields: { email: String(formData.get("email") ?? "") } };
+    throw err;
+  }
+}
+
+async function signupActionImpl(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const raw = { name: formData.get("name"), email: formData.get("email"), password: formData.get("password") };
   const parsed = signupSchema.safeParse(raw);
   const fields = { email: String(raw.email ?? ""), name: String(raw.name ?? "") };
@@ -41,7 +52,17 @@ const loginSchema = z.object({
   password: z.string().min(1, "パスワードを入力してください").max(200),
 });
 
-export async function loginAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+export async function loginAction(prev: AuthState, formData: FormData): Promise<AuthState> {
+  try {
+    return await loginActionImpl(prev, formData);
+  } catch (err) {
+    const msg = databaseSetupError(err);
+    if (msg) return { error: msg, fields: { email: String(formData.get("email") ?? "") } };
+    throw err;
+  }
+}
+
+async function loginActionImpl(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const parsed = loginSchema.safeParse({ email: formData.get("email"), password: formData.get("password") });
   const fields = { email: String(formData.get("email") ?? "") };
   if (!parsed.success) return { error: parsed.error.issues[0]?.message, fields };
@@ -76,9 +97,15 @@ export async function logoutAction() {
 /** One-click entry into a sample company (development, or DEMO_LOGIN=true). */
 export async function demoLoginAction() {
   if (!demoLoginEnabled()) redirect("/login");
+  let userId: string;
   const ip = await clientIp();
-  if (!(await rateLimit(`demo:${ip}`, 30, 600))) redirect("/login");
-  const userId = await ensureDemoAccount();
+  try {
+    if (!(await rateLimit(`demo:${ip}`, 30, 600))) redirect("/login");
+    userId = await ensureDemoAccount();
+  } catch (err) {
+    if (databaseSetupError(err)) redirect("/login?error=database");
+    throw err;
+  }
   await createSession(userId, { ip, userAgent: await userAgent() });
   await audit({ action: "auth.login", userId, ip, metadata: { method: "demo" } });
   redirect("/app");

@@ -42,6 +42,11 @@ minute so schedules fire and interrupted work is recovered:
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-app/api/cron/tick
 ```
 
+## Deploying to Vercel
+
+See [`docs/deploy-vercel.md`](docs/deploy-vercel.md) (Japanese). Set `DATABASE_URL`, `AUTH_SECRET`, `ENCRYPTION_KEY`, `APP_URL`;
+the `vercel-build` script runs migrations and the seed automatically. Check `/api/health` afterwards.
+
 ## Scripts
 
 | Command | What |

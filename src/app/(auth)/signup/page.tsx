@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSession } from "@/server/auth/session";
+import { getSessionOrNull } from "@/server/auth/session";
 import { googleOAuthConfigured } from "@/server/env";
 import { AuthForm } from "../auth-form";
 import { GoogleButton } from "../google-button";
@@ -10,7 +10,7 @@ import { DemoButton } from "../demo-button";
 export const metadata = { title: "無料で始める" };
 
 export default async function SignupPage() {
-  if (await getSession()) redirect("/app");
+  if (await getSessionOrNull()) redirect("/app");
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">Build your AI Company</h1>

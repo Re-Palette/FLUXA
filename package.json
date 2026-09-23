@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "postinstall": "prisma generate",
-    "google:check": "tsx --env-file=.env scripts/check-google.ts"
+    "google:check": "tsx --env-file=.env scripts/check-google.ts",
+    "vercel-build": "prisma migrate deploy && prisma db seed && next build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

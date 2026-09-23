@@ -43,4 +43,8 @@ export const isProduction = () => process.env.NODE_ENV === "production";
 export const secureCookies = () => (process.env.APP_URL ?? "").startsWith("https://");
 
 /** True when APP_URL points at this machine (local development or a local production build). */
-export const isLocalApp = () => /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/.test(process.env.APP_URL ?? "http://localhost:3000");
+export const isLocalApp = () => {
+  // Hosted platforms (Vercel sets VERCEL=1) are never "local", even if APP_URL was left unset.
+  if (process.env.VERCEL) return false;
+  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/.test(process.env.APP_URL ?? "http://localhost:3000");
+};

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSession } from "@/server/auth/session";
+import { getSessionOrNull } from "@/server/auth/session";
 import { googleOAuthConfigured } from "@/server/env";
 import { AuthForm } from "../auth-form";
 import { GoogleButton } from "../google-button";
@@ -11,6 +11,7 @@ export const metadata = { title: "ログイン" };
 
 const ERRORS: Record<string, string> = {
   oauth: "Google でのログインに失敗しました。もう一度お試しください。",
+  database: "データベースに接続できないためログインできません。サーバーの DATABASE_URL とマイグレーションを確認してください（/api/health で状態を確認できます）。",
   oauth_email: "Google アカウントのメールアドレスが確認されていません。",
   oauth_denied: "Google でのログインがキャンセルされました。",
   oauth_state: "ログインの有効期限が切れました。もう一度お試しください。",
@@ -19,7 +20,7 @@ const ERRORS: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const sp = await searchParams;
-  if (await getSession()) redirect("/app");
+  if (await getSessionOrNull()) redirect("/app");
   const next = typeof sp.next === "string" ? sp.next : undefined;
   const error = typeof sp.error === "string" ? ERRORS[sp.error] : undefined;
   return (

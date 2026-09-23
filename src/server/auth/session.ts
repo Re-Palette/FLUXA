@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
+import { unstable_rethrow } from "next/navigation";
 import { prisma } from "../db";
 import { randomToken, sha256 } from "../security/crypto";
 import { secureCookies } from "../env";
@@ -71,4 +72,15 @@ export async function destroySession(): Promise<void> {
 
 export async function setActiveCompany(sessionId: string, companyId: string): Promise<void> {
   await prisma.session.update({ where: { id: sessionId }, data: { activeCompanyId: companyId } });
+}
+
+/** For public pages (landing, login): treat an unavailable database as "not signed in" instead of crashing. */
+export async function getSessionOrNull() {
+  try {
+    return await getSession();
+  } catch (err) {
+    unstable_rethrow(err); // let Next.js control-flow errors (dynamic rendering, redirects) propagate
+    console.error("session lookup failed", { error: (err as Error).message });
+    return null;
+  }
 }
