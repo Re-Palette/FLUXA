@@ -128,7 +128,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/app">) 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <p className="truncate text-sm font-medium">{e.role}</p>
-                            <EmployeeStatus status={e.status} english />
+                            <EmployeeStatus status={e.status} english className="shrink-0 whitespace-nowrap" />
                           </div>
                           <p className="truncate text-xs text-muted">{current ? `${TASK_STATUS[current.status]?.label}: ${current.title}` : departmentJa(e.department)}</p>
                         </div>

@@ -5,6 +5,7 @@ import { googleOAuthConfigured } from "@/server/env";
 import { AuthForm } from "../auth-form";
 import { GoogleButton } from "../google-button";
 import { GoogleSetupHint } from "../google-setup-hint";
+import { DemoButton } from "../demo-button";
 
 export const metadata = { title: "ログイン" };
 
@@ -27,6 +28,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <p className="mt-2 text-sm text-muted">あなたの AI 会社にログインします。</p>
       {error ? <p className="mt-4 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
       <div className="mt-8 space-y-6">
+        <DemoButton />
         <GoogleButton enabled={googleOAuthConfigured()} next={next} />
         <GoogleSetupHint />
         <div className="flex items-center gap-3 text-xs text-faint">

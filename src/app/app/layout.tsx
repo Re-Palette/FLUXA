@@ -7,6 +7,8 @@ import { NotificationBell } from "@/components/shell/notifications";
 import { UserFooter } from "@/components/shell/user-menu";
 import { StatusDot } from "@/components/ui/badge";
 import { Logo } from "@/components/brand/logo";
+import { DEMO_EMAIL } from "@/server/services/demo";
+import { resetDemoAction } from "@/app/(auth)/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireCompany();
@@ -34,6 +36,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         </header>
+        {ctx.user.email === DEMO_EMAIL ? (
+          <div className="flex flex-wrap items-center gap-3 border-b border-info/30 bg-info-soft px-4 py-2 text-xs text-info sm:px-6">
+            <span className="flex-1">デモ環境です。表示されているのはサンプルデータで、ツールは接続されていません。自由に操作して大丈夫です。</span>
+            <form action={resetDemoAction}>
+              <button className="rounded-md border border-info/40 px-2 py-1 hover:bg-info/10">デモをリセット</button>
+            </form>
+          </div>
+        ) : null}
         <main className="mx-auto max-w-[1400px] px-4 pb-28 pt-6 sm:px-6 lg:pb-12">{children}</main>
       </div>
       <MobileNav footer={footer} />

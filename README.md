@@ -24,6 +24,10 @@ npm run db:seed                 # AI employee templates, plans, model prices
 npm run dev                     # http://localhost:3000
 ```
 
+Want to look around first? Click **「デモで中を見る」** on the login page — it signs you into a sample company
+(AI employees, finished tasks, reports, a pending approval) with no registration. It's on in development
+only (`DEMO_LOGIN=true` to force it on). Use **デモをリセット** in the app to restore the sample data.
+
 Then: **Sign up → Create company → Pick AI employees → Responsibilities & Mission → Connect tools →
 Permissions → Launch → Dashboard**. To let employees actually work, connect an AI provider in
 **Connections** (e.g. *Connect Claude* with your Anthropic API key — keys are tested, encrypted, and never

@@ -3,6 +3,7 @@ import { ArrowRight, Bot, CheckSquare, Network, Plug, ShieldCheck, Workflow } fr
 import { getSession } from "@/server/auth/session";
 import { Logo } from "@/components/brand/logo";
 import { ButtonLink } from "@/components/ui/button";
+import { DemoButton } from "./(auth)/demo-button";
 
 const ORBIT_LABELS = [
   { label: "Marketing", x: 18, y: 16 },
@@ -109,6 +110,7 @@ export default async function LandingPage() {
             <ButtonLink href={session ? "/app" : "/signup"} size="lg">
               今すぐはじめる <ArrowRight className="h-4 w-4" />
             </ButtonLink>
+            {session ? null : <DemoButton />}
             <a href="#features" className="text-sm text-muted hover:text-fg">
               できることを見る →
             </a>

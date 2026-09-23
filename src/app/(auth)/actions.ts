@@ -8,6 +8,7 @@ import { safeReturnTo } from "@/server/auth/oauth-state";
 import { rateLimit } from "@/server/security/rate-limit";
 import { clientIp, userAgent } from "@/server/security/request";
 import { audit } from "@/server/security/audit";
+import { DEMO_EMAIL, demoLoginEnabled, ensureDemoAccount, resetDemoAccount } from "@/server/services/demo";
 
 export type AuthState = { error?: string; fields?: { email?: string; name?: string } } | undefined;
 
@@ -65,4 +66,22 @@ export async function logoutAction() {
   await destroySession();
   if (session) await audit({ action: "auth.logout", userId: session.userId });
   redirect("/login");
+}
+
+/** One-click entry into a sample company (development, or DEMO_LOGIN=true). */
+export async function demoLoginAction() {
+  if (!demoLoginEnabled()) redirect("/login");
+  const ip = await clientIp();
+  if (!(await rateLimit(`demo:${ip}`, 30, 600))) redirect("/login");
+  const userId = await ensureDemoAccount();
+  await createSession(userId, { ip, userAgent: await userAgent() });
+  await audit({ action: "auth.login", userId, ip, metadata: { method: "demo" } });
+  redirect("/app");
+}
+
+export async function resetDemoAction() {
+  const session = await getSession();
+  if (!demoLoginEnabled() || session?.user.email !== DEMO_EMAIL) redirect("/app");
+  await resetDemoAccount();
+  redirect("/app");
 }
