@@ -50,3 +50,18 @@ describe("demo credentials", () => {
     expect(await verifyPassword(DEMO_PASSWORD, user.passwordHash!)).toBe(true);
   });
 });
+
+describe("demo onboarding trial", () => {
+  it("gives the demo user a blank company at step 1 and can switch back", async () => {
+    const { startDemoOnboardingTrial, switchDemoToSampleCompany, DEMO_TRIAL_COMPANY_ID } = await import("@/server/services/demo");
+    const userId = await ensureDemoAccount();
+    const session = await prisma.session.create({ data: { tokenHash: `t-${Date.now()}`, userId, expiresAt: new Date(Date.now() + 60_000) } });
+    await startDemoOnboardingTrial(userId, session.id);
+    await startDemoOnboardingTrial(userId, session.id); // repeatable
+    const trial = await prisma.company.findUniqueOrThrow({ where: { id: DEMO_TRIAL_COMPANY_ID } });
+    expect(trial).toMatchObject({ status: "ONBOARDING", onboardingStep: 1, name: "" });
+    expect((await prisma.session.findUniqueOrThrow({ where: { id: session.id } })).activeCompanyId).toBe(DEMO_TRIAL_COMPANY_ID);
+    await switchDemoToSampleCompany(session.id);
+    expect((await prisma.session.findUniqueOrThrow({ where: { id: session.id } })).activeCompanyId).toBe("demo_company");
+  });
+});

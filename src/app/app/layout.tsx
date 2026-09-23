@@ -9,7 +9,7 @@ import { StatusDot } from "@/components/ui/badge";
 import { Logo } from "@/components/brand/logo";
 import { DEMO_EMAIL } from "@/server/services/demo";
 import { IN_MEMORY_DB } from "@/server/memory-db";
-import { resetDemoAction } from "@/app/(auth)/actions";
+import { demoBackToSampleAction, demoOnboardingTrialAction, resetDemoAction } from "@/app/(auth)/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireCompany();
@@ -43,9 +43,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               デモ環境です。表示されているのはサンプルデータで、ツールは接続されていません。自由に操作して大丈夫です。
               {IN_MEMORY_DB ? " データベース未設定のため一時保存モードで動いており、追加・変更した内容はしばらくすると元に戻ります。" : ""}
             </span>
-            <form action={resetDemoAction}>
-              <button className="rounded-md border border-info/40 px-2 py-1 hover:bg-info/10">デモをリセット</button>
-            </form>
+            <div className="flex gap-2">
+              <form action={demoOnboardingTrialAction}>
+                <button className="rounded-md border border-info/40 px-2 py-1 hover:bg-info/10">初期設定を体験</button>
+              </form>
+              {ctx.company.id !== "demo_company" ? (
+                <form action={demoBackToSampleAction}>
+                  <button className="rounded-md border border-info/40 px-2 py-1 hover:bg-info/10">デモ会社に戻る</button>
+                </form>
+              ) : (
+                <form action={resetDemoAction}>
+                  <button className="rounded-md border border-info/40 px-2 py-1 hover:bg-info/10">デモをリセット</button>
+                </form>
+              )}
+            </div>
           </div>
         ) : null}
         <main className="mx-auto max-w-[1400px] px-4 pb-28 pt-6 sm:px-6 lg:pb-12">{children}</main>

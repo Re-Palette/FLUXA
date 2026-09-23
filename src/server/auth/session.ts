@@ -42,7 +42,12 @@ export async function createSession(userId: string, meta: { ip?: string; userAge
 }
 
 /** Resolves the current session from the cookie. Cached per request. */
-export const getSession = cache(async () => {
+export const getSession = cache(() => loadSession());
+
+/** Uncached lookup, for use right after the session cookie was (re)issued in the same request. */
+export const getSessionFresh = () => loadSession();
+
+const loadSession = async () => {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -74,7 +79,7 @@ export const getSession = cache(async () => {
       .catch(() => {});
   }
   return session;
-});
+};
 
 export async function destroySession(): Promise<void> {
   const jar = await cookies();

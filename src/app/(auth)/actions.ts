@@ -3,13 +3,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "@/server/auth/password";
-import { createSession, destroySession, getSession } from "@/server/auth/session";
+import { createSession, destroySession, getSession, getSessionFresh } from "@/server/auth/session";
 import { safeReturnTo } from "@/server/auth/oauth-state";
 import { rateLimit } from "@/server/security/rate-limit";
 import { clientIp, userAgent } from "@/server/security/request";
 import { audit } from "@/server/security/audit";
 import { databaseSetupError } from "@/server/actions";
-import { DEMO_EMAIL, demoLoginEnabled, demoSessionToken, ensureDemoAccount, resetDemoAccount } from "@/server/services/demo";
+import { DEMO_EMAIL, demoLoginEnabled, demoSessionToken, ensureDemoAccount, resetDemoAccount, startDemoOnboardingTrial, switchDemoToSampleCompany } from "@/server/services/demo";
 import { IN_MEMORY_DB } from "@/server/memory-db";
 
 export type AuthState = { error?: string; fields?: { email?: string; name?: string } } | undefined;
@@ -97,6 +97,27 @@ export async function logoutAction() {
 }
 
 /** One-click entry into a sample company (development, or DEMO_LOGIN=true). */
+/** Demo: sign in (if needed) and start the setup wizard on a blank practice company. */
+export async function demoOnboardingTrialAction() {
+  if (!demoLoginEnabled()) redirect("/login");
+  let session = await getSession();
+  if (session?.user.email !== DEMO_EMAIL) {
+    const userId = await ensureDemoAccount();
+    await createSession(userId, { ip: await clientIp(), userAgent: await userAgent(), token: IN_MEMORY_DB ? demoSessionToken() : undefined });
+    session = await getSessionFresh();
+  }
+  if (!session) redirect("/login");
+  await startDemoOnboardingTrial(session.userId, session.id);
+  redirect("/onboarding");
+}
+
+export async function demoBackToSampleAction() {
+  const session = await getSession();
+  if (!demoLoginEnabled() || session?.user.email !== DEMO_EMAIL) redirect("/app");
+  await switchDemoToSampleCompany(session.id);
+  redirect("/app");
+}
+
 export async function demoLoginAction() {
   if (!demoLoginEnabled()) redirect("/login");
   let userId: string;

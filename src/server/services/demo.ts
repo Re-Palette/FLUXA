@@ -267,3 +267,24 @@ export function demoSessionToken(): string {
   const secret = process.env.AUTH_SECRET || "fluxa-in-memory-demo";
   return "demo." + createHmac("sha256", secret).update("fluxa-demo-session").digest("base64url");
 }
+
+export const DEMO_TRIAL_COMPANY_ID = "demo_onboarding";
+
+/**
+ * Gives the demo user a blank company at onboarding step 1 so the setup wizard can be tried.
+ * Any previous practice company is replaced. The sample company is untouched.
+ */
+export async function startDemoOnboardingTrial(userId: string, sessionId: string): Promise<void> {
+  await prisma.company.deleteMany({ where: { id: DEMO_TRIAL_COMPANY_ID } });
+  await prisma.company.create({
+    data: { id: DEMO_TRIAL_COMPANY_ID, name: "", industry: "", size: "", description: "", goal: "", status: "ONBOARDING", onboardingStep: 1 },
+  });
+  await prisma.companyMember.create({ data: { companyId: DEMO_TRIAL_COMPANY_ID, userId, role: "OWNER" } });
+  const free = await prisma.plan.findUnique({ where: { key: "free" } });
+  if (free) await prisma.subscription.create({ data: { companyId: DEMO_TRIAL_COMPANY_ID, planKey: free.key } });
+  await prisma.session.update({ where: { id: sessionId }, data: { activeCompanyId: DEMO_TRIAL_COMPANY_ID } });
+}
+
+export async function switchDemoToSampleCompany(sessionId: string): Promise<void> {
+  await prisma.session.update({ where: { id: sessionId }, data: { activeCompanyId: "demo_company" } });
+}

@@ -1,7 +1,7 @@
-import { Eye } from "lucide-react";
+import { Eye, ListChecks } from "lucide-react";
 import { DEMO_EMAIL, DEMO_NAME, DEMO_PASSWORD, demoLoginEnabled } from "@/server/services/demo";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { demoLoginAction } from "./actions";
+import { demoLoginAction, demoOnboardingTrialAction } from "./actions";
 
 /** "Look inside" entry with sample data. Only rendered when demo login is enabled. */
 export function DemoButton({ className, showCredentials = false }: { className?: string; showCredentials?: boolean }) {
@@ -13,6 +13,13 @@ export function DemoButton({ className, showCredentials = false }: { className?:
           <Eye className="h-4 w-4" /> デモで中を見る（登録不要）
         </SubmitButton>
       </form>
+      {showCredentials ? (
+        <form action={demoOnboardingTrialAction} className="mt-2">
+          <SubmitButton variant="ghost" className="w-full" pendingText="準備中…">
+            <ListChecks className="h-4 w-4" /> 初期設定（会社作成〜AI社員選択）から体験する
+          </SubmitButton>
+        </form>
+      ) : null}
       {showCredentials ? (
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-line bg-panel-2 px-3 py-2.5 text-xs">
           <dt className="text-faint">名前</dt>

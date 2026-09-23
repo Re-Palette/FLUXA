@@ -3,7 +3,8 @@ import { Logo } from "@/components/brand/logo";
 import { getCompanyContext } from "@/server/auth/guards";
 import { googleOAuthConfigured } from "@/server/env";
 import { effectivePolicies } from "@/server/services/employees";
-import { logoutAction } from "../(auth)/actions";
+import { demoBackToSampleAction, logoutAction } from "../(auth)/actions";
+import { DEMO_EMAIL } from "@/server/services/demo";
 import { Stepper } from "./stepper";
 import { CompanyStep } from "./steps/company-step";
 import { EmployeesStep } from "./steps/employees-step";
@@ -93,6 +94,11 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
           <div className="flex-1">
             <Stepper current={step} reached={reached} />
           </div>
+          {ctx.user.email === DEMO_EMAIL ? (
+            <form action={demoBackToSampleAction}>
+              <button className="whitespace-nowrap text-xs text-info hover:underline">デモ会社に戻る</button>
+            </form>
+          ) : null}
           <form action={logoutAction}>
             <button className="text-xs text-faint hover:text-fg">ログアウト</button>
           </form>
