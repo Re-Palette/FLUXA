@@ -1,0 +1,164 @@
+@import "tailwindcss";
+
+/* FLUXA design tokens. Dark is the default theme; light is opt-in via [data-theme="light"]. */
+:root {
+  --bg: #06080c;
+  --bg-elev: #0a0e14;
+  --panel: #0e131b;
+  --panel-2: #121925;
+  --panel-hover: #161f2c;
+  --border: #1b2431;
+  --border-strong: #283444;
+  --text: #e9eef5;
+  --muted: #8d99aa;
+  --faint: #5b6778;
+  --accent: #ff6a1a;
+  --accent-2: #ff8f45;
+  --accent-soft: rgba(255, 106, 26, 0.12);
+  --accent-ring: rgba(255, 106, 26, 0.35);
+  --success: #3ccf8e;
+  --success-soft: rgba(60, 207, 142, 0.12);
+  --warning: #f4b545;
+  --warning-soft: rgba(244, 181, 69, 0.12);
+  --danger: #f26666;
+  --danger-soft: rgba(242, 102, 102, 0.12);
+  --info: #5ea8ff;
+  --info-soft: rgba(94, 168, 255, 0.12);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f6f8;
+  --bg-elev: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f7f8fa;
+  --panel-hover: #f1f3f6;
+  --border: #e3e7ed;
+  --border-strong: #cfd6df;
+  --text: #0f1520;
+  --muted: #5a6677;
+  --faint: #8a95a5;
+  --accent: #f25c0a;
+  --accent-2: #ff7a2e;
+  --accent-soft: rgba(242, 92, 10, 0.09);
+  --accent-ring: rgba(242, 92, 10, 0.3);
+  --success: #14a36a;
+  --success-soft: rgba(20, 163, 106, 0.1);
+  --warning: #c98a0e;
+  --warning-soft: rgba(201, 138, 14, 0.1);
+  --danger: #d9423f;
+  --danger-soft: rgba(217, 66, 63, 0.09);
+  --info: #2f7fe0;
+  --info-soft: rgba(47, 127, 224, 0.09);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 4px 14px rgba(16, 24, 40, 0.05);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-panel-hover: var(--panel-hover);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: "Inter", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "palt" 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent-ring);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.wordmark {
+  letter-spacing: 0.32em;
+  font-weight: 300;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
+
+.glow-accent {
+  box-shadow: 0 0 0 1px var(--accent-ring), 0 8px 30px -8px var(--accent-ring);
+}
+
+.prose-fluxa {
+  line-height: 1.75;
+  font-size: 0.925rem;
+}
+.prose-fluxa h1 { font-size: 1.35rem; font-weight: 600; margin: 1.2em 0 0.5em; }
+.prose-fluxa h2 { font-size: 1.12rem; font-weight: 600; margin: 1.4em 0 0.5em; }
+.prose-fluxa h3 { font-size: 1rem; font-weight: 600; margin: 1.2em 0 0.4em; }
+.prose-fluxa p { margin: 0.6em 0; }
+.prose-fluxa ul { list-style: disc; padding-left: 1.4em; margin: 0.5em 0; }
+.prose-fluxa ol { list-style: decimal; padding-left: 1.4em; margin: 0.5em 0; }
+.prose-fluxa li { margin: 0.2em 0; }
+.prose-fluxa code { font-family: var(--font-mono); font-size: 0.85em; background: var(--panel-2); padding: 0.1em 0.35em; border-radius: 5px; }
+.prose-fluxa pre { background: var(--panel-2); border: 1px solid var(--border); padding: 0.9em 1em; border-radius: 10px; overflow-x: auto; margin: 0.8em 0; }
+.prose-fluxa pre code { background: none; padding: 0; }
+.prose-fluxa blockquote { border-left: 2px solid var(--accent); padding-left: 0.9em; color: var(--muted); margin: 0.8em 0; }
+.prose-fluxa hr { border-color: var(--border); margin: 1.4em 0; }
+.prose-fluxa a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.prose-fluxa table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 0.875rem; display: block; overflow-x: auto; }
+.prose-fluxa th, .prose-fluxa td { border: 1px solid var(--border); padding: 0.4em 0.6em; text-align: left; }
+.prose-fluxa th { background: var(--panel-2); font-weight: 600; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.animate-pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+@keyframes orbit-spin {
+  to { transform: rotate(360deg); }
+}
+.animate-orbit { animation: orbit-spin 60s linear infinite; transform-origin: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-orbit, .animate-pulse-dot { animation: none; }
+}

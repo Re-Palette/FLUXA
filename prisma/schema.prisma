@@ -1,0 +1,686 @@
+// FLUXA — AI Company OS
+// Every tenant-owned model carries a non-null companyId. See docs/architecture.md §3.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Identity ─────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  passwordHash  String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      AuthAccount[]
+  sessions      Session[]
+  memberships   CompanyMember[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+}
+
+// Login identity from an external provider (Google Sign-In). Separate from tool Integrations.
+model AuthAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id              String   @id @default(cuid())
+  tokenHash       String   @unique
+  userId          String
+  activeCompanyId String?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+  userAgent       String?
+  ip              String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  companyId String?
+  action    String
+  ip        String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model RateLimitBucket {
+  key         String   @id
+  count       Int
+  windowStart DateTime
+}
+
+// ───────────────────────────── Tenant ─────────────────────────────
+
+enum CompanyStatus {
+  ONBOARDING
+  ACTIVE
+  PAUSED
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Company {
+  id             String        @id @default(cuid())
+  name           String
+  industry       String
+  size           String
+  description    String
+  goal           String
+  website        String?
+  status         CompanyStatus @default(ONBOARDING)
+  onboardingStep Int           @default(1)
+  launchedAt     DateTime?
+  defaultModel   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  members            CompanyMember[]
+  employees          AIEmployee[]
+  responsibilities   AIEmployeeResponsibility[]
+  toolPermissions    EmployeeToolPermission[]
+  connectionAccess   EmployeeConnectionAccess[]
+  integrations       Integration[]
+  credentials        Credential[]
+  workflows          Workflow[]
+  tasks              Task[]
+  toolCalls          ToolCall[]
+  approvals          Approval[]
+  reports            Report[]
+  activity           ActivityLog[]
+  notifications      Notification[]
+  memories           CompanyMemory[]
+  knowledgeDocuments KnowledgeDocument[]
+  knowledgeChunks    KnowledgeChunk[]
+  schedules          Schedule[]
+  usageRecords       UsageRecord[]
+  usageLimit         UsageLimit?
+  subscription       Subscription?
+}
+
+model CompanyMember {
+  id        String     @id @default(cuid())
+  companyId String
+  userId    String
+  role      MemberRole @default(MEMBER)
+  createdAt DateTime   @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@index([userId])
+}
+
+// ───────────────────────────── Catalog (global) ─────────────────────────────
+
+model EmployeeTemplate {
+  key              String   @id
+  name             String
+  department       String
+  description      String
+  recommendedUse   String
+  defaultMission   String
+  responsibilities Json // [{ key, label }]
+  suggestedTools   Json // provider keys
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Plan {
+  key                  String   @id
+  name                 String
+  description          String
+  monthlyPriceCents    Int?
+  currency             String   @default("usd")
+  includedUsageCents   Int      @default(0)
+  monthlyTokenLimit    Int?
+  monthlyRequestLimit  Int?
+  maxEmployees         Int?
+  allowsPlatformAI     Boolean  @default(false)
+  overagePer1kTokensMc Int? // milli-cents per 1k tokens
+  isPublic             Boolean  @default(true)
+  sortOrder            Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model ModelPrice {
+  id                    String   @id @default(cuid())
+  provider              String
+  model                 String
+  inputPerMTokMicroUsd  Int // micro-USD per 1M input tokens
+  outputPerMTokMicroUsd Int
+  updatedAt             DateTime @updatedAt
+
+  @@unique([provider, model])
+}
+
+// ───────────────────────────── Workforce ─────────────────────────────
+
+enum EmployeeStatus {
+  IDLE
+  WORKING
+  THINKING
+  WAITING
+  WAITING_APPROVAL
+  COMPLETED
+  ERROR
+  PAUSED
+  OFFLINE
+}
+
+model AIEmployee {
+  id           String         @id @default(cuid())
+  companyId    String
+  templateKey  String?
+  name         String
+  role         String
+  department   String
+  description  String         @default("")
+  mission      String
+  instructions String         @default("")
+  status       EmployeeStatus @default(IDLE)
+  isCustom     Boolean        @default(false)
+  model        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  company          Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  responsibilities AIEmployeeResponsibility[]
+  toolPermissions  EmployeeToolPermission[]
+  connectionAccess EmployeeConnectionAccess[]
+  tasks            Task[]
+  toolCalls        ToolCall[]
+  approvals        Approval[]
+  reports          Report[]
+  schedules        Schedule[]
+
+  @@index([companyId, department])
+}
+
+model AIEmployeeResponsibility {
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String
+  key        String? // catalog key; null for custom
+  label      String
+  isCustom   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  company  Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee AIEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, employeeId])
+}
+
+enum ToolPolicy {
+  ALLOW
+  REQUIRE_APPROVAL
+  DENY
+}
+
+model EmployeeToolPermission {
+  id         String     @id @default(cuid())
+  companyId  String
+  employeeId String
+  tool       String
+  policy     ToolPolicy
+
+  company  Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee AIEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, tool])
+  @@index([companyId])
+}
+
+// Which connected services an employee may read from / act on.
+model EmployeeConnectionAccess {
+  id         String @id @default(cuid())
+  companyId  String
+  employeeId String
+  provider   String
+
+  company  Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee AIEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, provider])
+  @@index([companyId])
+}
+
+// ───────────────────────────── Connections ─────────────────────────────
+
+enum IntegrationStatus {
+  CONNECTED
+  ERROR
+  DISCONNECTED
+}
+
+model Integration {
+  id            String            @id @default(cuid())
+  companyId     String
+  provider      String
+  status        IntegrationStatus @default(DISCONNECTED)
+  accountLabel  String? // e.g. connected Google account email
+  secretHint    String? // e.g. "••••abcd"
+  scopes        String[]
+  lastError     String?
+  lastCheckedAt DateTime?
+  connectedAt   DateTime?
+  connectedById String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  credential Credential?
+
+  @@unique([companyId, provider])
+}
+
+enum CredentialType {
+  API_KEY
+  OAUTH
+}
+
+model Credential {
+  id            String         @id @default(cuid())
+  companyId     String
+  integrationId String         @unique
+  type          CredentialType
+  ciphertext    String // base64(iv|tag|data), AES-256-GCM, AAD = companyId:integrationId
+  keyVersion    Int            @default(1)
+  expiresAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ───────────────────────────── Work ─────────────────────────────
+
+enum WorkflowStatus {
+  PLANNING
+  RUNNING
+  WAITING_APPROVAL
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum TaskStatus {
+  PENDING
+  PLANNING
+  RUNNING
+  WAITING
+  APPROVAL_REQUIRED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Workflow {
+  id               String         @id @default(cuid())
+  companyId        String
+  request          String
+  title            String
+  status           WorkflowStatus @default(PLANNING)
+  priority         TaskPriority   @default(NORMAL)
+  targetEmployeeId String?
+  plan             Json?
+  finalResult      String?
+  error            String?
+  source           String         @default("user") // user | schedule
+  scheduleId       String?
+  createdById      String?
+  lockedAt         DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  completedAt      DateTime?
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+  reports Report[]
+
+  @@index([companyId, createdAt])
+  @@index([status])
+}
+
+model Task {
+  id               String       @id @default(cuid())
+  companyId        String
+  workflowId       String?
+  employeeId       String
+  step             Int          @default(0)
+  title            String
+  description      String
+  status           TaskStatus   @default(PENDING)
+  priority         TaskPriority @default(NORMAL)
+  approvalRequired Boolean      @default(false)
+  result           String?
+  error            String?
+  transcript       Json? // provider-neutral agent messages, used to resume after approval
+  attempts         Int          @default(0)
+  lockedAt         DateTime?
+  createdAt        DateTime     @default(now())
+  startedAt        DateTime?
+  completedAt      DateTime?
+  updatedAt        DateTime     @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workflow  Workflow?  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  employee  AIEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  toolCalls ToolCall[]
+  approvals Approval[]
+  reports   Report[]
+
+  @@index([companyId, status])
+  @@index([status, createdAt])
+  @@index([employeeId])
+  @@index([workflowId, step])
+}
+
+enum ToolCallStatus {
+  PENDING
+  AWAITING_APPROVAL
+  RUNNING
+  SUCCEEDED
+  FAILED
+  REJECTED
+  DENIED
+}
+
+model ToolCall {
+  id          String         @id @default(cuid())
+  companyId   String
+  taskId      String
+  employeeId  String
+  tool        String
+  callId      String // model-issued tool call id
+  input       Json
+  output      Json?
+  status      ToolCallStatus @default(PENDING)
+  error       String?
+  createdAt   DateTime       @default(now())
+  completedAt DateTime?
+
+  company  Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  task     Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employee AIEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  approval Approval?
+
+  @@unique([taskId, callId])
+  @@index([companyId])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model Approval {
+  id          String         @id @default(cuid())
+  companyId   String
+  taskId      String
+  employeeId  String
+  toolCallId  String         @unique
+  title       String
+  summary     String
+  payload     Json
+  riskTags    String[]
+  status      ApprovalStatus @default(PENDING)
+  decidedById String?
+  decidedAt   DateTime?
+  reason      String?
+  createdAt   DateTime       @default(now())
+
+  company  Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  task     Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employee AIEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  toolCall ToolCall   @relation(fields: [toolCallId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status])
+}
+
+// ───────────────────────────── Output ─────────────────────────────
+
+model Report {
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String?
+  taskId     String?
+  workflowId String?
+  title      String
+  kind       String   @default("task") // task | workflow | daily | weekly | monthly | custom
+  summary    String   @default("")
+  content    String // markdown
+  data       Json?
+  createdAt  DateTime @default(now())
+
+  company  Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee AIEmployee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  task     Task?       @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  workflow Workflow?   @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+}
+
+enum ActorType {
+  USER
+  EMPLOYEE
+  SYSTEM
+}
+
+model ActivityLog {
+  id         String    @id @default(cuid())
+  companyId  String
+  actorType  ActorType
+  actorId    String?
+  actorName  String
+  action     String
+  message    String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  companyId String
+  userId    String
+  type      String // task_completed | approval_required | error | connection_lost | report_ready | alert
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, userId, readAt])
+}
+
+// ───────────────────────────── Memory & knowledge ─────────────────────────────
+
+model CompanyMemory {
+  id         String   @id @default(cuid())
+  companyId  String
+  kind       String // profile | mission | goal | brand | preference | decision | instruction | report_summary | note
+  title      String
+  content    String
+  source     String   @default("user") // user | employee | system
+  importance Int      @default(1)
+  pinned     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, kind])
+}
+
+model KnowledgeDocument {
+  id         String   @id @default(cuid())
+  companyId  String
+  title      String
+  source     String // upload | google_drive | notion | url
+  externalId String?
+  mimeType   String?
+  status     String   @default("pending") // pending | processed | failed
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  chunks  KnowledgeChunk[]
+
+  @@index([companyId])
+}
+
+model KnowledgeChunk {
+  id         String   @id @default(cuid())
+  companyId  String
+  documentId String
+  index      Int
+  content    String
+  // Reserved for pgvector: migrate to `Unsupported("vector(1536)")` when enabling RAG.
+  embedding  Float[]
+  createdAt  DateTime @default(now())
+
+  company  Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, documentId])
+}
+
+// ───────────────────────────── Operations ─────────────────────────────
+
+model Schedule {
+  id          String    @id @default(cuid())
+  companyId   String
+  employeeId  String?
+  name        String
+  cron        String // 5-field cron, evaluated in `timezone`
+  timezone    String    @default("UTC")
+  instruction String
+  kind        String    @default("task") // task | daily_report | weekly_report | monthly_report
+  enabled     Boolean   @default(true)
+  nextRunAt   DateTime?
+  lastRunAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company  Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee AIEmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([enabled, nextRunAt])
+  @@index([companyId])
+}
+
+enum BillingMode {
+  BYOK
+  PLATFORM
+}
+
+model UsageRecord {
+  id           String      @id @default(cuid())
+  companyId    String
+  userId       String?
+  employeeId   String?
+  taskId       String?
+  provider     String
+  model        String
+  purpose      String // plan | employee | test
+  inputTokens  Int
+  outputTokens Int
+  requests     Int         @default(1)
+  costMicroUsd Int         @default(0)
+  billingMode  BillingMode @default(BYOK)
+  createdAt    DateTime    @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+}
+
+model UsageLimit {
+  id                       String   @id @default(cuid())
+  companyId                String   @unique
+  dailyRequestLimit        Int?
+  monthlyRequestLimit      Int?
+  dailyTokenLimit          Int?
+  monthlyTokenLimit        Int?
+  monthlyCostLimitMicroUsd Int?
+  updatedAt                DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id                 String      @id @default(cuid())
+  companyId          String      @unique
+  planKey            String
+  status             String      @default("active") // active | trialing | past_due | canceled
+  billingMode        BillingMode @default(BYOK)
+  currentPeriodStart DateTime    @default(now())
+  currentPeriodEnd   DateTime?
+  externalId         String? // e.g. Stripe subscription id
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan    Plan    @relation(fields: [planKey], references: [key])
+}
