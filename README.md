@@ -27,7 +27,8 @@ npm run dev                     # http://localhost:3000
 Then: **Sign up → Create company → Pick AI employees → Responsibilities & Mission → Connect tools →
 Permissions → Launch → Dashboard**. To let employees actually work, connect an AI provider in
 **Connections** (e.g. *Connect Claude* with your Anthropic API key — keys are tested, encrypted, and never
-sent back to the browser). Google services and Google Sign-In require `GOOGLE_CLIENT_ID/SECRET`.
+sent back to the browser). Google Sign-In and Google service connections require `GOOGLE_CLIENT_ID/SECRET` —
+see [`docs/google-login-setup.md`](docs/google-login-setup.md) (Japanese) and check with `npm run google:check`.
 
 Work is processed right after each request (`after()`); in production also call the cron endpoint every
 minute so schedules fire and interrupted work is recovered:

@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { googleSetupStatus } from "@/lib/google-setup";
 import { env } from "../env";
 import { pkceChallenge } from "./oauth-state";
 
@@ -9,9 +10,9 @@ const USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
 export const GOOGLE_LOGIN_SCOPES = ["openid", "email", "profile"];
 
+/** Must exactly match an "Authorized redirect URI" of the OAuth client in Google Cloud Console. */
 export function googleRedirectUri(kind: "login" | "connect"): string {
-  const base = env().APP_URL.replace(/\/$/, "");
-  return kind === "login" ? `${base}/api/auth/google/callback` : `${base}/api/connections/google/callback`;
+  return googleSetupStatus(process.env).redirectUris[kind];
 }
 
 export function googleAuthUrl(opts: {
@@ -54,6 +55,13 @@ const tokenSchema = z.object({
 });
 export type GoogleTokens = z.infer<typeof tokenSchema>;
 
+export class GoogleOAuthError extends Error {
+  constructor(public code: string) {
+    super(`Google OAuth error: ${code}`);
+    this.name = "GoogleOAuthError";
+  }
+}
+
 export async function exchangeGoogleCode(code: string, verifier: string, redirectUri: string): Promise<GoogleTokens> {
   const e = env();
   const res = await fetch(TOKEN_URL, {
@@ -68,7 +76,10 @@ export async function exchangeGoogleCode(code: string, verifier: string, redirec
       grant_type: "authorization_code",
     }),
   });
-  if (!res.ok) throw new Error(`Google token exchange failed (${res.status})`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new GoogleOAuthError(body.error ?? `http_${res.status}`);
+  }
   return tokenSchema.parse(await res.json());
 }
 

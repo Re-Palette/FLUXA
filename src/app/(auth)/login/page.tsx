@@ -4,12 +4,16 @@ import { getSession } from "@/server/auth/session";
 import { googleOAuthConfigured } from "@/server/env";
 import { AuthForm } from "../auth-form";
 import { GoogleButton } from "../google-button";
+import { GoogleSetupHint } from "../google-setup-hint";
 
 export const metadata = { title: "ログイン" };
 
 const ERRORS: Record<string, string> = {
   oauth: "Google でのログインに失敗しました。もう一度お試しください。",
   oauth_email: "Google アカウントのメールアドレスが確認されていません。",
+  oauth_denied: "Google でのログインがキャンセルされました。",
+  oauth_state: "ログインの有効期限が切れました。もう一度お試しください。",
+  oauth_config: "Google ログインの設定に問題があります（クライアント ID・シークレット・リダイレクト URI）。管理者は npm run google:check で確認してください。",
 };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
@@ -24,6 +28,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       {error ? <p className="mt-4 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
       <div className="mt-8 space-y-6">
         <GoogleButton enabled={googleOAuthConfigured()} next={next} />
+        <GoogleSetupHint />
         <div className="flex items-center gap-3 text-xs text-faint">
           <span className="h-px flex-1 bg-line" /> または <span className="h-px flex-1 bg-line" />
         </div>

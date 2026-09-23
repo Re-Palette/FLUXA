@@ -4,6 +4,7 @@ import { getSession } from "@/server/auth/session";
 import { googleOAuthConfigured } from "@/server/env";
 import { AuthForm } from "../auth-form";
 import { GoogleButton } from "../google-button";
+import { GoogleSetupHint } from "../google-setup-hint";
 
 export const metadata = { title: "無料で始める" };
 
@@ -15,6 +16,7 @@ export default async function SignupPage() {
       <p className="mt-2 text-sm text-muted">アカウントを作成して、あなた専用の AI 会社をつくりましょう。</p>
       <div className="mt-8 space-y-6">
         <GoogleButton enabled={googleOAuthConfigured()} />
+        <GoogleSetupHint />
         <div className="flex items-center gap-3 text-xs text-faint">
           <span className="h-px flex-1 bg-line" /> または <span className="h-px flex-1 bg-line" />
         </div>

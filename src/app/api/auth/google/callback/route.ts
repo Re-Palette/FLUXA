@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/server/db";
 import { consumeOAuth, safeReturnTo } from "@/server/auth/oauth-state";
-import { exchangeGoogleCode, fetchGoogleUser, googleRedirectUri } from "@/server/auth/google";
+import { exchangeGoogleCode, fetchGoogleUser, googleRedirectUri, GoogleOAuthError } from "@/server/auth/google";
 import { createSession } from "@/server/auth/session";
 import { audit } from "@/server/security/audit";
 import { clientIp, userAgent } from "@/server/security/request";
@@ -10,7 +10,9 @@ export async function GET(request: NextRequest) {
   const fail = (code = "oauth") => NextResponse.redirect(new URL(`/login?error=${code}`, request.url));
   const st = await consumeOAuth(request.nextUrl.searchParams.get("state"));
   const code = request.nextUrl.searchParams.get("code");
-  if (!st || st.purpose !== "login" || !code) return fail();
+  if (request.nextUrl.searchParams.get("error") === "access_denied") return fail("oauth_denied");
+  if (!st || st.purpose !== "login") return fail("oauth_state");
+  if (!code) return fail();
 
   try {
     const tokens = await exchangeGoogleCode(code, st.verifier, googleRedirectUri("login"));
@@ -39,6 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(hasCompany ? safeReturnTo(st.returnTo, "/app") : "/onboarding", request.url));
   } catch (err) {
     console.error("google login failed", { error: (err as Error).message });
+    if (err instanceof GoogleOAuthError && ["invalid_client", "unauthorized_client", "redirect_uri_mismatch"].includes(err.code)) return fail("oauth_config");
     return fail();
   }
 }

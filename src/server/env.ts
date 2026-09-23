@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { googleSetupStatus } from "@/lib/google-setup";
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -33,7 +34,7 @@ export function env(): Env {
 }
 
 export function googleOAuthConfigured(): boolean {
-  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+  return googleSetupStatus(process.env).configured;
 }
 
 export const isProduction = () => process.env.NODE_ENV === "production";
